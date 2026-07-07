@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ classroom.name }} | EduFlow</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+</head>
+<body class="flex min-h-screen bg-gray-50 text-gray-900">
+    <!-- Sidebar -->
+    <aside class="w-64 bg-white border-r border-gray-100 flex-shrink-0 flex flex-col hidden md:flex">
+        <div class="p-6">
+            <h1 class="text-2xl font-bold text-indigo-600">EduFlow</h1>
+        </div>
+        <nav class="flex-1 px-4 space-y-2">
+            <a href="/dashboard" class="flex items-center p-3 rounded-xl sidebar-link">Dashboard</a>
+            <a href="/classroom/{{ classroom.id }}" class="flex items-center p-3 rounded-xl sidebar-link active">Class Stream</a>
+            {% if session['user_role'] != 'principal' %}
+                <a href="/classroom/{{ classroom.id }}/assignments" class="flex items-center p-3 rounded-xl sidebar-link">Assignments</a>
+                <a href="/classroom/{{ classroom.id }}/attendance" class="flex items-center p-3 rounded-xl sidebar-link">Attendance</a>
+            {% endif %}
+        </nav>
+    </aside>
+
+    <main class="flex-1 overflow-y-auto p-8">
+        <div class="max-w-5xl mx-auto">
+            {% with messages = get_flashed_messages() %}
+                {% if messages %}
+                    <div class="bg-green-50 border border-green-100 text-green-700 px-4 py-3 rounded-xl mb-6 shadow-sm">
+                        {{ messages[0] }}
+                    </div>
+                {% endif %}
+            {% endwith %}
+
+            <!-- Header -->
+            <div class="bg-indigo-600 rounded-3xl p-10 text-white mb-8 relative overflow-hidden shadow-xl shadow-indigo-200">
+                <div class="relative z-10 flex justify-between items-center">
+                    <div>
+                        <h2 class="text-4xl font-bold">{{ classroom.name }}</h2>
+                        <p class="text-indigo-100 mt-2">{{ classroom.subject }} 
+                            {% if session['user_role'] in ['teacher', 'principal'] %} 
+                                • Invite Code: <span class="font-mono bg-indigo-700 px-2 py-1 rounded">{{ classroom.code }}</span>
+                            {% endif %}
+                        </p>
+                    </div>
+                </div>
+                <div class="absolute -right-10 -bottom-10 w-64 h-64 bg-indigo-500 rounded-full opacity-30"></div>
+            </div>
+
+            <!-- Subjects Section -->
+            <div class="mb-12">
+                <div class="flex justify-between items-center mb-6">
+                    <h3 class="text-2xl font-bold text-gray-900">Class Subjects</h3>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {% for subject in subjects %}
+                    <div class="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm hover-card flex items-center">
+                        <div class="w-12 h-12 bg-purple-50 text-purple-600 rounded-full flex items-center justify-center font-bold text-xl mr-4 uppercase">
+                            {{ subject.name[0] }}
+                        </div>
+                        <div>
+                            <h4 class="text-lg font-bold text-gray-900">{{ subject.name }}</h4>
+                            <p class="text-sm text-gray-500">Teacher: {{ subject.teacher_name }}</p>
+                        </div>
+                    </div>
+                    {% else %}
+                    <div class="col-span-3 text-gray-500 bg-white p-8 rounded-3xl border border-gray-100 text-center font-medium">
+                        No subjects have been assigned to this class yet.
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Add Subjects & Assign Teachers Form (For Principal) -->
+            {% if session['user_role'] == 'principal' %}
+            <div class="bg-white p-8 rounded-3xl border border-gray-100 shadow-sm mb-12">
+                <h4 class="font-bold text-xl mb-6 border-b border-gray-100 pb-4 text-gray-900">Add New Subject & Assign Teacher</h4>
+                <form action="/classroom/{{ classroom.id }}/add_subject" method="POST" class="grid grid-cols-1 md:grid-cols-3 gap-6 items-end">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Subject Name</label>
+                        <input type="text" name="subject_name" placeholder="e.g., Mathematics" required class="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-indigo-500 outline-none transition">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Assign Teacher</label>
+                        <select name="teacher_id" required class="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-indigo-500 outline-none bg-white transition">
+                            <option value="">Select a Teacher</option>
+                            {% for teacher in school_teachers %}
+                                <option value="{{ teacher.id }}">{{ teacher.name }} ({{ teacher.email }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <button type="submit" class="w-full bg-indigo-600 text-white px-6 py-3 rounded-xl font-semibold hover:bg-indigo-700 transition shadow-md shadow-indigo-100">Add Subject</button>
+                    </div>
+                </form>
+            </div>
+            {% endif %}
+
+            <!-- People / Students Section -->
+            <div class="mb-10">
+                <div class="flex justify-between items-center mb-6">
+                    <h3 class="text-2xl font-bold text-gray-900 flex items-center gap-2">
+                        <i class="ph-fill ph-users text-indigo-600"></i>
+                        {% if session['user_role'] in ['teacher', 'principal'] %}
+                            Enrolled Students
+                        {% else %}
+                            My Classmates
+                        {% endif %}
+                    </h3>
+                    <span class="bg-indigo-50 text-indigo-700 text-sm font-bold px-4 py-1.5 rounded-full border border-indigo-100">
+                        {{ enrolled_students|length }} Total
+                    </span>
+                </div>
+
+                <div class="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden">
+                    {% if enrolled_students %}
+                        <ul class="divide-y divide-gray-100">
+                            {% for student in enrolled_students %}
+                            <li class="p-5 hover:bg-gray-50 transition flex items-center">
+                                <div class="w-10 h-10 bg-indigo-100 text-indigo-700 rounded-full flex items-center justify-center font-bold text-lg mr-4 uppercase">
+                                    {{ student.name[0] }}
+                                </div>
+                                <div class="flex-1">
+                                    <h4 class="text-md font-bold text-gray-900">{{ student.name }}
+                                        {% if session['user_id'] == student.id %}
+                                            <span class="ml-2 text-xs font-semibold bg-gray-200 text-gray-600 px-2 py-0.5 rounded-full">You</span>
+                                        {% endif %}
+                                    </h4>
+                                    <!-- Hide emails from other students for privacy, but show to teachers/principals -->
+                                    {% if session['user_role'] in ['teacher', 'principal'] or session['user_id'] == student.id %}
+                                        <p class="text-sm text-gray-500">{{ student.email }}</p>
+                                    {% endif %}
+                                </div>
+                            </li>
+                            {% endfor %}
+                        </ul>
+                    {% else %}
+                        <div class="p-12 text-center">
+                            <i class="ph-duotone ph-users-three text-4xl text-gray-300 mb-3 block"></i>
+                            <p class="text-gray-500 font-medium">No students have joined this class yet.</p>
+                            {% if session['user_role'] in ['teacher', 'principal'] %}
+                                <p class="text-sm text-gray-400 mt-1">Share the invite code <b>{{ classroom.code }}</b> with your students.</p>
+                            {% endif %}
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+
+        </div>
+    </main>
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>

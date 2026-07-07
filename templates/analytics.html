@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advance Analytics | EduFlow</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+</head>
+<body class="flex min-h-screen bg-gray-50 text-gray-900">
+    <aside class="w-64 bg-white border-r border-gray-100 flex-shrink-0 flex flex-col hidden md:flex">
+        <div class="p-6"><h1 class="text-2xl font-bold text-indigo-600">EduFlow</h1></div>
+        <nav class="flex-1 px-4 space-y-2">
+            <a href="/dashboard" class="flex items-center p-3 rounded-xl sidebar-link">Dashboard</a>
+            <a href="/notices" class="flex items-center p-3 rounded-xl sidebar-link">Notices</a>
+            <a href="/analytics" class="flex items-center p-3 rounded-xl sidebar-link active mt-4 border border-purple-200 bg-purple-50 text-purple-700">
+                <i class="ph-bold ph-chart-line-up mr-2"></i> Analytics
+            </a>
+        </nav>
+    </aside>
+
+    <main class="flex-1 overflow-y-auto p-8">
+        <div class="max-w-6xl mx-auto space-y-8">
+            <div>
+                <h2 class="text-3xl font-bold text-gray-900">Advance Teacher & Subject Analytics</h2>
+                <p class="text-gray-500 mt-2">Data science powered insights based on anonymous student feedback.</p>
+            </div>
+
+            <!-- Row 1: Ratings & Attendance -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                
+                <!-- Topic Understanding Progress -->
+                <div class="bg-white p-8 rounded-3xl border border-gray-100 shadow-sm">
+                    <h3 class="text-xl font-bold mb-6 flex items-center gap-2"><i class="ph-fill ph-star text-yellow-400"></i> Average Subject Understanding</h3>
+                    <div class="space-y-4">
+                        {% for rating in ratings %}
+                        <div>
+                            <div class="flex justify-between text-sm font-semibold mb-1">
+                                <span>{{ rating.subject_name }} <span class="text-gray-400 font-normal">({{ rating.teacher_name }})</span></span>
+                                <span>{{ "%.1f"|format(rating.avg_rating or 0) }} / 10</span>
+                            </div>
+                            <div class="w-full bg-gray-100 rounded-full h-2.5">
+                                <div class="bg-gradient-to-r from-yellow-400 to-orange-500 h-2.5 rounded-full" style="width: {{ (rating.avg_rating or 0) * 10 }}%"></div>
+                            </div>
+                            <p class="text-xs text-gray-400 mt-1">Based on {{ rating.total_feedback }} submissions</p>
+                        </div>
+                        {% else %}
+                        <p class="text-gray-500 text-center py-6">No rating data collected yet.</p>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <!-- Absentees Alert -->
+                <div class="bg-white p-8 rounded-3xl border border-gray-100 shadow-sm">
+                    <h3 class="text-xl font-bold mb-6 flex items-center gap-2"><i class="ph-fill ph-warning-circle text-red-500"></i> High Absence Subjects</h3>
+                    <p class="text-sm text-gray-500 mb-6">Subjects with the most number of total absent students recorded.</p>
+                    <ul class="space-y-4">
+                        {% for absence in absences %}
+                        <li class="flex justify-between items-center p-4 bg-red-50 rounded-2xl border border-red-100">
+                            <span class="font-bold text-red-900">{{ absence.subject_name }}</span>
+                            <span class="bg-red-500 text-white font-bold text-xs px-3 py-1 rounded-lg">{{ absence.total_absences }} Absences</span>
+                        </li>
+                        {% else %}
+                        <p class="text-gray-500 text-center py-6">No absence data recorded yet.</p>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Row 2: Sentiment Summary -->
+            <div class="bg-white p-8 rounded-3xl border border-gray-100 shadow-sm">
+                <div class="flex justify-between items-end mb-6 border-b border-gray-100 pb-4">
+                    <div>
+                        <h3 class="text-xl font-bold flex items-center gap-2"><i class="ph-fill ph-brain text-purple-600"></i> Feedback Sentiment Analysis</h3>
+                        <p class="text-sm text-gray-500 mt-1">Directly extracted and classified from anonymous student assignment submissions.</p>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- Positive Summary -->
+                    <div>
+                        <h4 class="font-bold text-green-700 bg-green-50 px-4 py-2 rounded-xl border border-green-200 w-fit mb-4">Positive Feedback Highlights</h4>
+                        <div class="space-y-3 max-h-[400px] overflow-y-auto pr-2">
+                            {% for fb in feedbacks if fb.sentiment == 'Positive' %}
+                            <div class="p-4 bg-gray-50 rounded-2xl border border-gray-100 hover:border-green-200 transition">
+                                <span class="text-xs font-bold text-gray-400 block mb-1">{{ fb.subject_name }} • {{ fb.title }}</span>
+                                <p class="text-sm text-gray-700">"{{ fb.feedback }}"</p>
+                            </div>
+                            {% else %}
+                            <p class="text-gray-400 text-sm">No positive feedback recorded yet.</p>
+                            {% endfor %}
+                        </div>
+                    </div>
+
+                    <!-- Negative Summary -->
+                    <div>
+                        <h4 class="font-bold text-red-700 bg-red-50 px-4 py-2 rounded-xl border border-red-200 w-fit mb-4">Areas to Improve (Negative Feedback)</h4>
+                        <div class="space-y-3 max-h-[400px] overflow-y-auto pr-2">
+                            {% for fb in feedbacks if fb.sentiment == 'Negative' %}
+                            <div class="p-4 bg-gray-50 rounded-2xl border border-gray-100 hover:border-red-200 transition">
+                                <span class="text-xs font-bold text-gray-400 block mb-1">{{ fb.subject_name }} • {{ fb.title }}</span>
+                                <p class="text-sm text-gray-700">"{{ fb.feedback }}"</p>
+                            </div>
+                            {% else %}
+                            <p class="text-gray-400 text-sm">No negative feedback recorded yet. Great job!</p>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="mt-8 bg-purple-50 p-6 rounded-2xl border border-purple-100 text-purple-900">
+                    <h5 class="font-bold mb-2 flex items-center gap-2"><i class="ph-fill ph-lightbulb"></i> Principal's Action Point</h5>
+                    <p class="text-sm">Please review the "Areas to Improve" list. If a specific subject has consistent negative feedback, do not reprimand the teacher on the platform. Please schedule a private 1-on-1 meeting in person to discuss teaching progress and topic clarity.</p>
+                </div>
+            </div>
+        </div>
+    </main>
+</body>
+</html>

@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>School Notices | EduFlow</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body class="flex min-h-screen">
+    <aside class="w-64 bg-white border-r border-gray-100 flex-shrink-0 flex flex-col hidden md:flex">
+        <div class="p-6"><h1 class="text-2xl font-bold text-indigo-600">EduFlow</h1></div>
+        <nav class="flex-1 px-4 space-y-2">
+            <a href="/dashboard" class="flex items-center p-3 rounded-xl sidebar-link">Dashboard</a>
+            <a href="/notices" class="flex items-center p-3 rounded-xl sidebar-link active">Notices</a>
+        </nav>
+        <div class="p-6 border-t border-gray-100">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm font-semibold truncate">{{ session['user_name'] }}</p>
+                    <p class="text-xs text-gray-400 capitalize">{{ session['user_role'] }}</p>
+                </div>
+                <a href="/logout" class="text-red-500 text-sm font-medium">Logout</a>
+            </div>
+        </div>
+    </aside>
+
+    <main class="flex-1 overflow-y-auto p-8">
+        <div class="max-w-4xl mx-auto space-y-6">
+            <h2 class="text-3xl font-bold mb-6">School Notice Board</h2>
+
+            {% with messages = get_flashed_messages() %}
+                {% if messages %}
+                    <div class="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-xl mb-6">
+                        {{ messages[0] }}
+                    </div>
+                {% endif %}
+            {% endwith %}
+
+            <!-- Form visible ONLY to Principals -->
+            {% if session['user_role'] == 'principal' %}
+            <div class="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm mb-8">
+                <h4 class="font-bold mb-4 text-lg">Post a New Notice</h4>
+                <form action="/notices" method="POST" class="space-y-4">
+                    <input type="text" name="title" placeholder="Notice Title" required class="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-indigo-500 outline-none">
+                    <textarea name="content" placeholder="Type the notice details here..." required class="w-full px-4 py-3 rounded-xl border border-gray-200 h-24 focus:ring-2 focus:ring-indigo-500 outline-none"></textarea>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Who can see this?</label>
+                        <select name="audience" class="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-indigo-500 outline-none">
+                            <option value="teacher">Teachers Only</option>
+                            <option value="all">Everyone (Teachers & Students)</option>
+                            <option value="student">Students Only</option>
+                        </select>
+                    </div>
+                    
+                    <button type="submit" class="bg-indigo-600 text-white px-6 py-3 rounded-xl font-semibold hover:bg-indigo-700 transition">Post Notice</button>
+                </form>
+            </div>
+            {% endif %}
+
+            <!-- Notice Feed -->
+            <div class="space-y-4">
+                {% for notice in notices %}
+                <div class="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm hover-card relative overflow-hidden">
+                    <!-- Top Right Label showing audience for principals -->
+                    {% if session['user_role'] == 'principal' %}
+                        <div class="absolute top-0 right-0 bg-indigo-50 text-indigo-600 text-xs font-bold px-3 py-1 rounded-bl-xl">
+                            Visible to: {{ notice.target_audience | capitalize }}
+                        </div>
+                    {% endif %}
+                    
+                    <h5 class="text-xl font-bold text-gray-900">{{ notice.title }}</h5>
+                    <p class="text-sm text-gray-600 mt-3 whitespace-pre-wrap">{{ notice.content }}</p>
+                    <div class="text-xs font-medium text-gray-400 mt-4 flex items-center">
+                        <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                        Posted on: {{ notice.created_at.split('.')[0] if notice.created_at else '' }}
+                    </div>
+                </div>
+                {% else %}
+                <div class="bg-indigo-50 p-8 rounded-3xl text-center text-indigo-600 font-medium">
+                    No active notices at this time.
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </main>
+</body>
+</html>

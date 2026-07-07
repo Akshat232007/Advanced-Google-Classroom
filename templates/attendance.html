@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Attendance | EduFlow</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <!-- Add Chart.js for the student graph -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="flex min-h-screen bg-gray-50 text-gray-900">
+    <aside class="w-64 bg-white border-r border-gray-100 flex-shrink-0 flex flex-col hidden md:flex">
+        <div class="p-6"><h1 class="text-2xl font-bold text-indigo-600">EduFlow</h1></div>
+        <nav class="flex-1 px-4 space-y-2">
+            <a href="/dashboard" class="flex items-center p-3 rounded-xl sidebar-link">Dashboard</a>
+            <a href="/classroom/{{ classroom.id }}" class="flex items-center p-3 rounded-xl sidebar-link">Class Stream</a>
+            <a href="/classroom/{{ classroom.id }}/assignments" class="flex items-center p-3 rounded-xl sidebar-link">Assignments</a>
+            <a href="/classroom/{{ classroom.id }}/attendance" class="flex items-center p-3 rounded-xl sidebar-link active">Attendance</a>
+        </nav>
+    </aside>
+
+    <main class="flex-1 overflow-y-auto p-8">
+        <div class="max-w-5xl mx-auto">
+            <h2 class="text-3xl font-bold mb-8">Attendance Dashboard - {{ classroom.name }}</h2>
+            
+            {% with messages = get_flashed_messages() %}
+                {% if messages %}
+                    <div class="bg-green-50 border border-green-100 text-green-700 px-4 py-3 rounded-xl mb-6 shadow-sm">
+                        {{ messages[0] }}
+                    </div>
+                {% endif %}
+            {% endwith %}
+
+            <!-- TEACHER VIEW: Take Attendance Form -->
+            {% if session['user_role'] == 'teacher' %}
+            <div class="bg-white p-8 rounded-3xl border border-gray-100 shadow-sm mb-8">
+                <h4 class="font-bold mb-6 text-xl border-b border-gray-100 pb-4">Record Daily Attendance</h4>
+                
+                <form method="POST" class="space-y-6">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label class="block text-sm font-medium mb-2 text-gray-700">Select Date</label>
+                            <input type="date" name="date" required class="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-indigo-500 outline-none transition bg-white">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium mb-2 text-gray-700">Select Subject</label>
+                            <select name="subject_id" required class="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-indigo-500 outline-none transition bg-white">
+                                <option value="">Select the Subject</option>
+                                {% for subject in teacher_subjects %}
+                                    <option value="{{ subject.id }}">{{ subject.name }}</option>
+                                {% endfor %}
+                            </select>
+                            {% if not teacher_subjects %}
+                                <p class="text-xs text-red-500 mt-2">You don't have any subjects assigned in this class yet.</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <div class="space-y-3">
+                        <p class="text-sm font-medium text-gray-700 mb-2 mt-4">Student Roster</p>
+                        {% if students %}
+                            {% for student in students %}
+                            <div class="flex items-center justify-between p-4 bg-gray-50 hover:bg-gray-100 transition rounded-xl">
+                                <div>
+                                    <span class="font-bold text-gray-900 block">{{ student.name }}</span>
+                                    <span class="text-xs text-gray-500">{{ student.email }}</span>
+                                </div>
+                                <label class="relative inline-flex items-center cursor-pointer">
+                                    <input type="checkbox" name="student_{{ student.id }}" class="sr-only peer" checked>
+                                    <div class="w-11 h-6 bg-red-400 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-500"></div>
+                                    <span class="ml-3 text-sm font-medium text-gray-900 peer-checked:text-green-600 peer-checked:hidden">Absent</span>
+                                    <span class="ml-3 text-sm font-medium text-gray-900 text-green-600 hidden peer-checked:block">Present</span>
+                                </label>
+                            </div>
+                            {% endfor %}
+                            <button type="submit" class="w-full mt-6 bg-indigo-600 text-white py-3 rounded-xl font-bold shadow-md shadow-indigo-100 hover:bg-indigo-700 transition" {% if not teacher_subjects %}disabled{% endif %}>Submit Attendance</button>
+                        {% else %}
+                            <div class="p-6 border border-dashed border-gray-200 rounded-2xl text-center text-gray-500">
+                                No students are enrolled in this class yet.
+                            </div>
+                        {% endif %}
+                    </div>
+                </form>
+            </div>
+
+            <!-- STUDENT VIEW: See Own Attendance -->
+            {% else %}
+                {% if student_stats and student_stats.total > 0 %}
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        <!-- Chart Card -->
+                        <div class="bg-white p-8 rounded-3xl border border-gray-100 shadow-sm text-center">
+                            <h4 class="font-bold text-xl mb-6">Attendance Overview</h4>
+                            <div class="relative w-full max-w-[250px] mx-auto mb-6">
+                                <canvas id="studentChart"></canvas>
+                                <!-- Percentage in middle of doughnut -->
+                                <div class="absolute inset-0 flex items-center justify-center flex-col pointer-events-none">
+                                    <span class="text-3xl font-black text-gray-900">{{ student_stats.percentage }}%</span>
+                                </div>
+                            </div>
+                            
+                            <!-- Stats Row -->
+                            <div class="grid grid-cols-3 gap-4 border-t border-gray-100 pt-6">
+                                <div>
+                                    <p class="text-xs text-gray-400 font-bold uppercase tracking-wider">Total</p>
+                                    <p class="text-2xl font-black text-gray-900 mt-1">{{ student_stats.total }}</p>
+                                </div>
+                                <div>
+                                    <p class="text-xs text-green-500 font-bold uppercase tracking-wider">Present</p>
+                                    <p class="text-2xl font-black text-green-500 mt-1">{{ student_stats.present }}</p>
+                                </div>
+                                <div>
+                                    <p class="text-xs text-red-500 font-bold uppercase tracking-wider">Absent</p>
+                                    <p class="text-2xl font-black text-red-500 mt-1">{{ student_stats.absent }}</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- History List Card -->
+                        <div class="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden flex flex-col">
+                            <div class="p-6 border-b border-gray-100 bg-gray-50">
+                                <h4 class="font-bold text-xl text-gray-900">Attendance History</h4>
+                            </div>
+                            <ul class="divide-y divide-gray-100 overflow-y-auto" style="max-h: 400px;">
+                                {% for record in student_stats.records %}
+                                <li class="p-5 flex justify-between items-center hover:bg-gray-50 transition">
+                                    <div class="flex items-center gap-3">
+                                        <div class="flex flex-col">
+                                            <!-- Subjet Name -->
+                                            <span class="font-semibold text-gray-900 text-sm bg-gray-100 px-2.5 py-1 rounded w-fit mb-1">{{ record.subject_name or 'General Class' }}</span>
+                                            <div class="flex items-center gap-1.5 text-sm text-gray-500">
+                                                <i class="ph-bold ph-calendar-blank"></i> {{ record.date }}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    {% if record.status == 'Present' %}
+                                        <span class="bg-green-50 text-green-700 text-xs font-bold px-3 py-1.5 rounded-lg border border-green-200">Present</span>
+                                    {% else %}
+                                        <span class="bg-red-50 text-red-700 text-xs font-bold px-3 py-1.5 rounded-lg border border-red-200">Absent</span>
+                                    {% endif %}
+                                </li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                    </div>
+
+                    <!-- Setup Chart.js Graphic (Fixed Syntax) -->
+                    <script>
+                        document.addEventListener('DOMContentLoaded', function() {
+                            const ctx = document.getElementById('studentChart').getContext('2d');
+                            new Chart(ctx, {
+                                type: 'doughnut',
+                                data: {
+                                    labels: ['Present', 'Absent'],
+                                    datasets: [{
+                                        data: [{{ student_stats.present | default(0) }}, {{ student_stats.absent | default(0) }}],
+                                        backgroundColor: ['#22C55E', '#EF4444'], // Tailwind green-500 and red-500
+                                        borderWidth: 0,
+                                        hoverOffset: 5
+                                    }]
+                                },
+                                options: {
+                                    cutout: '75%',
+                                    plugins: {
+                                        legend: { display: false },
+                                        tooltip: {
+                                            callbacks: {
+                                                label: function(context) {
+                                                    let label = context.label || '';
+                                                    if (label) { label += ': '; }
+                                                    label += context.raw + ' classes';
+                                                    return label;
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            });
+                        });
+                    </script>
+
+                {% else %}
+                    <!-- Placeholder if no data yet -->
+                    <div class="bg-white p-16 rounded-3xl border border-dashed border-gray-200 text-center">
+                        <i class="ph-duotone ph-calendar-x text-5xl text-gray-300 mb-4 block"></i>
+                        <p class="text-gray-600 font-bold text-xl">No attendance records yet.</p>
+                        <p class="text-gray-400 mt-2">Your teacher hasn't recorded any attendance for this class. Once they do, your statistics will appear here.</p>
+                    </div>
+                {% endif %}
+            {% endif %}
+        </div>
+    </main>
+</body>
+</html>
